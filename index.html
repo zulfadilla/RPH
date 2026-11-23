@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Penjana RPH Jawi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&family=Amiri:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar no-print">
+  <div class="brand">
+    <span class="brand-title">Penjana RPH Jawi</span>
+    <span class="brand-sub" dir="rtl">رانچڠن ڤڠاجرن هارين</span>
+  </div>
+  <div class="actions">
+    <button id="btnWord" class="btn primary" type="button">Muat turun Word</button>
+    <button id="btnPdf" class="btn primary" type="button">Cetak / Simpan PDF</button>
+    <details class="menu">
+      <summary class="btn">Fail data ▾</summary>
+      <div class="menu-pop">
+        <button id="btnExportJson" type="button">Simpan data (.json)</button>
+        <label class="file-btn">Buka data (.json)<input id="inpImportJson" type="file" accept=".json,application/json" hidden></label>
+        <button id="btnReset" type="button" class="danger">Padam semua &amp; mula semula</button>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="editor no-print">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="rph" type="button">RPH</button>
+      <button class="tab" data-tab="tetapan" type="button">Tetapan</button>
+    </nav>
+
+    <div id="tab-rph" class="tab-panel">
+      <div class="rph-list-head">
+        <label for="selRph">RPH dipilih</label>
+        <select id="selRph"></select>
+      </div>
+      <div class="row-btns">
+        <button id="btnAdd" class="btn small" type="button">+ RPH baharu</button>
+        <button id="btnNextDay" class="btn small" type="button" title="Salin RPH ini ke hari persekolahan berikutnya">Salin ke hari berikut</button>
+        <button id="btnDel" class="btn small danger" type="button">Padam</button>
+      </div>
+      <form id="formRph" autocomplete="off"></form>
+    </div>
+
+    <div id="tab-tetapan" class="tab-panel" hidden>
+      <form id="formSet" autocomplete="off"></form>
+    </div>
+
+    <div class="jawi-pad" id="jawiPad" aria-label="Huruf Jawi tambahan">
+      <span class="pad-label">Huruf Jawi:</span>
+    </div>
+  </section>
+
+  <section class="preview-wrap">
+    <div class="preview-head no-print">
+      <span>Pratonton</span>
+      <label class="chk"><input type="checkbox" id="chkAll" checked> Tunjuk semua RPH</label>
+    </div>
+    <div id="preview" class="preview"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast no-print" role="status"></div>
+
+<script src="assets/logos.js"></script>
+<script src="vendor/docx.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
