@@ -27,6 +27,13 @@
     { name: "Amiri", size: 13, note: "font web" },
   ];
 
+  const BLANK = "_____";
+  const BLANK_RE = /_{3,}/g;
+  const REFLEKSI_DEFAULT = [
+    "1. _____ اورڠ موريد داڤت منچاڤاي اوبجيکتيف ڤمبلاجرن يڠ دتتڤكن.",
+    "2. _____ اورڠ موريد ماسيه بلوم مڠواساءي اوبجيکتيف ڤمبلاجرن يڠ دتتڤکن. موريد اکن دبري بيمبيڠن برتروسن درڤد ݢورو.",
+  ].join("\n");
+
   const GRID = [890, 1170, 827, 3027, 636, 1284, 1526]; // twip, kanan → kiri
   const TABLE_W = GRID.reduce((a, b) => a + b, 0);
   const GREEN = "A8D08D";
@@ -42,6 +49,7 @@
     fontSize: 18,
     hijriOffset: 0,
     pageBreak: true,
+    refleksiTemplate: REFLEKSI_DEFAULT,
     logoKiri: null,
     logoKanan: null,
   };
@@ -59,7 +67,7 @@
       objektif: "دأخير ڨمبلاجرن موريد داڨت ممباچ، مماهمي دان منوليس جواڤن اولڠكاجي دان لاتيهن دڠن بتول.",
       aktiviti: "1. موريد دبري ڨنراڠن دري ڬورو.\n2. موريد ممباچ دان مماهمي اولڠكاجي دان لاتيهن دالم كومڤولن.\n3. موريد منوليس جواڤن اولڠكاجي دان لاتيهن جواب دالم بوكو اكتيۏيتي ماسيڠ۲.",
       bahan: "بوكو اكتيۏيتي", nilai: "تومڤوان", penilaian: "ڤمرهاتين/ ڬرق كرجا برتوليس",
-      capai: "", belum: "",
+      refleksiNilai: [],
       catatan: [], catatanLain: "",
       dibawa: "اكتيۏيتي تاهڤ 1 سلڤس ڤڤريقساءن اخير تاهون (سوكانيک)",
     };
@@ -129,13 +137,26 @@
     if (ls.length < 2) return ls;
     return ls.map((l, i) => (/^[0-9٠-٩۰-۹]+\s*[.)]/.test(l) ? l : `${i + 1}. ${l}`));
   }
+  const refleksiTpl = () => lines(state.settings.refleksiTemplate ?? REFLEKSI_DEFAULT);
+  function refleksiVals(e) {
+    // data lama (sebelum templat): capai / belum
+    if (!Array.isArray(e.refleksiNilai)) e.refleksiNilai = [e.capai || "", e.belum || ""];
+    return e.refleksiNilai;
+  }
   function refleksiLines(e) {
-    const a = String(e.capai || "").trim() || "_____";
-    const b = String(e.belum || "").trim() || "_____";
-    return [
-      `1. ${a} اورڠ موريد داڤت منچاڤاي اوبجيکتيف ڤمبلاجرن يڠ دتتڤكن.`,
-      `2. ${b} اورڠ موريد ماسيه بلوم مڠواساءي اوبجيکتيف ڤمبلاجرن يڠ دتتڤكن. موريد اکن دبري بيمبيڠن برتروسن درڤد ݢورو.`,
-    ];
+    const vals = refleksiVals(e);
+    let n = 0;
+    return refleksiTpl().map((l) => l.replace(BLANK_RE, () => String(vals[n++] ?? "").trim() || BLANK));
+  }
+  function refleksiFormHTML(e) {
+    const vals = refleksiVals(e);
+    let n = 0;
+    const tpl = refleksiTpl();
+    if (!tpl.length) return `<span class="hint">Templat kosong — isi di tab Tetapan.</span>`;
+    return `<div class="rf-list">${tpl.map((l) => `<div class="rf-line jawi-in" dir="rtl">${
+      l.split(BLANK_RE).map((part, i, arr) => esc(part) + (i < arr.length - 1
+        ? `<input type="text" inputmode="numeric" class="rf-in" data-rf="${n}" value="${esc(vals[n++] ?? "")}" placeholder="__" aria-label="Nombor">` : "")).join("")
+    }</div>`).join("")}</div>`;
   }
   function catatanLabel(i, e) {
     let t = `${i + 1}. ${CATATAN[i]}`;
@@ -179,11 +200,8 @@
       ] },
     ] },
     { legend: "Impak / refleksi", rows: [
-      { grid: [
-        { k: "capai", t: "text", label: "Bil. murid capai objektif", plain: true },
-        { k: "belum", t: "text", label: "Bil. murid belum capai", plain: true },
-      ] },
-      { hint: "Biarkan kosong untuk garisan _____ (isi dengan tangan selepas mengajar)." },
+      { refleksi: true },
+      { hint: "Isi nombor dalam kotak. Biarkan kosong untuk garisan _____ (isi dengan tangan). Ayat templat boleh diubah di tab Tetapan." },
     ] },
     { legend: "Catatan", rows: [{ catatan: true }, { k: "catatanLain", t: "text", label: "Lain-lain (jika ada)" }] },
     { legend: "Pembelajaran dibawa ke hari berikutnya", rows: [{ k: "dibawa", t: "area", label: "", jawi: LABEL.dibawa, rows: 2 }] },
@@ -208,6 +226,7 @@
     form.innerHTML = RPH_FIELDS.map((fs) => `<fieldset><legend>${esc(fs.legend)}</legend>${fs.rows.map((r) => {
       if (r.grid) return `<div class="grid2">${r.grid.map((f) => fieldHTML(f, e)).join("")}</div>`;
       if (r.hint) return `<span class="hint">${esc(r.hint)}</span>`;
+      if (r.refleksi) return refleksiFormHTML(e);
       if (r.catatan) return `<div class="cat-grid">${CATATAN.map((c, i) => `<label><input type="checkbox" data-cat="${i}" ${e.catatan.includes(i) ? "checked" : ""}> ${esc(c)}</label>`).join("")}</div>`;
       return fieldHTML(r, e);
     }).join("")}</fieldset>`).join("");
@@ -230,6 +249,11 @@
           </div>
           <button type="button" class="btn small" id="btnLogoReset" style="margin-top:6px;align-self:flex-start">Guna logo asal</button>
         </div>
+      </fieldset>
+      <fieldset><legend>Templat Impak / Refleksi</legend>
+        ${fieldHTML({ k: "refleksiTemplate", t: "area", label: "Ayat refleksi", jawi: LABEL.refleksi, rows: 5,
+          hint: "Satu baris satu poin. Tulis _____ (garis bawah) di tempat nombor — dalam borang RPH ia jadi kotak untuk diisi." }, s)}
+        <button type="button" class="btn small" id="btnRfReset" style="margin-top:6px;align-self:flex-start">Guna templat asal</button>
       </fieldset>
       <fieldset><legend>Tandatangan</legend>
         ${fieldHTML({ k: "disediakan", t: "text", label: "Disediakan oleh", jawi: "دسدياكن اوليه" }, s)}
@@ -538,7 +562,10 @@
     fr.addEventListener("input", (ev) => {
       const e = entry(); if (!e) return;
       const el = ev.target;
-      if (el.dataset.cat !== undefined) {
+      if (el.dataset.rf !== undefined) {
+        const vals = refleksiVals(e);
+        vals[Number(el.dataset.rf)] = el.value;
+      } else if (el.dataset.cat !== undefined) {
         const i = Number(el.dataset.cat);
         e.catatan = el.checked ? [...new Set([...e.catatan, i])].sort() : e.catatan.filter((x) => x !== i);
       } else if (el.dataset.k) {
@@ -571,6 +598,7 @@
       } else if (el.dataset.k) {
         s[el.dataset.k] = el.type === "number" ? Number(el.value) : el.value;
         if (el.dataset.k === "hijriOffset") { state.entries.forEach(applyDate); renderRphForm(); }
+        if (el.dataset.k === "refleksiTemplate") renderRphForm();
       }
       save(); renderPreview();
     });
@@ -583,6 +611,11 @@
       } catch (_) { toast("Gambar tidak dapat dibaca."); }
     });
     fs.addEventListener("click", (ev) => {
+      if (ev.target.id === "btnRfReset") {
+        state.settings.refleksiTemplate = REFLEKSI_DEFAULT;
+        document.getElementById("f_refleksiTemplate").value = REFLEKSI_DEFAULT;
+        save(); renderRphForm(); renderPreview(true);
+      }
       if (ev.target.id === "btnLogoReset") {
         state.settings.logoKiri = null; state.settings.logoKanan = null;
         save(); refreshLogoPreviews(); renderPreview(true);
@@ -600,7 +633,7 @@
     });
     document.getElementById("btnNextDay").addEventListener("click", () => {
       const p = entry(); if (!p) return;
-      const e = { ...JSON.parse(JSON.stringify(p)), id: uid(), capai: "", belum: "", kehadiran: p.kehadiran };
+      const e = { ...JSON.parse(JSON.stringify(p)), id: uid(), refleksiNilai: [], kehadiran: p.kehadiran };
       e.tarikhISO = nextSchoolDay(p.tarikhISO || todayISO());
       applyDate(e);
       const idx = state.entries.findIndex((x) => x.id === p.id);

@@ -168,3 +168,13 @@ table.rph .cat .box {
   table.rph tr { break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ---------- templat refleksi ---------- */
+.rf-list { display: flex; flex-direction: column; gap: 8px; }
+.rf-line { border: 1px solid var(--line); border-radius: 7px; background: #fff; padding: 6px 10px; line-height: 1.9; }
+.rf-line input.rf-in {
+  width: 3.2em; margin: 0 4px; padding: 0 4px; text-align: center; direction: ltr;
+  font: 600 15px system-ui, sans-serif; border: 0; border-bottom: 2px solid var(--accent);
+  background: #eef6e8; border-radius: 4px 4px 0 0; vertical-align: middle;
+}
+.rf-line input.rf-in:focus { outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
