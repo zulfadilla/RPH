@@ -20388,6 +20388,7 @@ var __async = (__this, __arguments, generator) => {
     "اوݢوس", "سيڤتيمبر", "اوکتوبر", "نوۏيمبر", "ديسيمبر"];
   const BULAN_H = ["محرم", "صفر", "ربيع الاول", "ربيع الاخير", "جمادالاول", "جمادالأخير",
     "رجب", "شعبان", "رمضان", "شوال", "ذوالقعدة", "ذوالحجة"];
+  const SUBJEK = ["جاوي", "ڤنديديقن القرءان", "عقيدة"];
   const CATATAN = ["چوتي ساكيت", "چوتي خاص", "كورسوس/ بيڠكيل", "مشوارت", "ڨروڬرم سكوله", "لاين۲"];
   const JAWI_PAD = ["ڤ", "ڠ", "چ", "ݢ", "ڬ", "ۏ", "ڽ", "ة", "ء", "أ", "إ", "ى", "۲", "،", "؟"];
 
@@ -20566,7 +20567,7 @@ var __async = (__this, __arguments, generator) => {
       ] },
     ] },
     { legend: "Isi pelajaran", rows: [
-      { k: "subjek", t: "text", label: "Mata pelajaran", jawi: LABEL.subjek },
+      { k: "subjek", t: "select", options: SUBJEK, label: "Mata pelajaran", jawi: LABEL.subjek },
       { k: "sk", t: "area", label: "Standard kandungan", jawi: LABEL.sk, rows: 2 },
       { k: "sp", t: "area", label: "Standard pembelajaran", jawi: LABEL.sp, rows: 3, hint: "Satu baris satu perkara — nombor ditambah automatik." },
       { k: "objektif", t: "area", label: "Objektif pembelajaran", jawi: LABEL.objektif, rows: 3 },
@@ -20592,7 +20593,11 @@ var __async = (__this, __arguments, generator) => {
     const val = src[f.k] ?? "";
     const jawiCls = f.t !== "date" && !f.plain ? "jawi-in" : "";
     let input;
-    if (f.t === "area") input = `<textarea id="${id}" data-k="${f.k}" rows="${f.rows || 3}" class="${jawiCls}">${esc(val)}</textarea>`;
+    if (f.t === "select") {
+      const opts = val && !f.options.includes(val) ? [...f.options, val] : f.options;
+      input = `<select id="${id}" data-k="${f.k}" class="jawi-in" dir="rtl">${val ? "" : `<option value="" selected disabled>— Pilih —</option>`}${
+        opts.map((o) => `<option value="${esc(o)}" ${o === val ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+    } else if (f.t === "area") input = `<textarea id="${id}" data-k="${f.k}" rows="${f.rows || 3}" class="${jawiCls}">${esc(val)}</textarea>`;
     else if (f.t === "date") input = `<input type="date" id="${id}" data-k="${f.k}" value="${esc(val)}">`;
     else input = `<input type="text" id="${id}" data-k="${f.k}" value="${esc(val)}" class="${jawiCls}" ${f.plain ? 'dir="auto"' : ""}>`;
     const lbl = f.label || f.jawi ? `<label for="${id}"><span>${esc(f.label)}</span>${f.jawi ? `<span class="jl" dir="rtl">${esc(f.jawi)}</span>` : ""}</label>` : "";
@@ -21066,7 +21071,7 @@ var __async = (__this, __arguments, generator) => {
 
     // papan huruf Jawi
     document.addEventListener("focusin", (ev) => {
-      if (ev.target.classList && ev.target.classList.contains("jawi-in")) lastJawiInput = ev.target;
+      if (ev.target.classList && ev.target.classList.contains("jawi-in") && ev.target.tagName !== "SELECT") lastJawiInput = ev.target;
     });
     const pad = document.getElementById("jawiPad");
     JAWI_PAD.forEach((ch) => {
