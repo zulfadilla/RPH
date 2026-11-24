@@ -178,3 +178,9 @@ table.rph .cat .box {
   background: #eef6e8; border-radius: 4px 4px 0 0; vertical-align: middle;
 }
 .rf-line input.rf-in:focus { outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* ---------- kotak tarikh ---------- */
+.date-box { background: #eef6e8; border: 1px solid #cfe3c0; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.date-box input[type=date] { font-size: 16px; font-weight: 600; padding: 9px 10px; }
+.date-box .f + .f, .date-box .quick-dates + .f { margin-top: 8px; }
+.quick-dates { display: flex; gap: 6px; margin-top: 6px; }

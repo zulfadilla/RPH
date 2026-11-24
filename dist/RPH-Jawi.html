@@ -188,6 +188,12 @@ table.rph .cat .box {
 }
 .rf-line input.rf-in:focus { outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
 
+/* ---------- kotak tarikh ---------- */
+.date-box { background: #eef6e8; border: 1px solid #cfe3c0; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.date-box input[type=date] { font-size: 16px; font-weight: 600; padding: 9px 10px; }
+.date-box .f + .f, .date-box .quick-dates + .f { margin-top: 8px; }
+.quick-dates { display: flex; gap: 6px; margin-top: 6px; }
+
 </style>
 </head>
 <body>
@@ -20548,19 +20554,20 @@ var __async = (__this, __arguments, generator) => {
   // ---------------------------------------------------------------- form
   const RPH_FIELDS = [
     { legend: "Maklumat kelas", rows: [
-      { grid: [
-        { k: "tarikhISO", t: "date", label: "Tarikh" },
-        { k: "minggu", t: "text", label: "Minggu", jawi: LABEL.minggu, plain: true },
+      { box: "date-box", rows: [
+        { k: "tarikhISO", t: "date", label: "📅 Pilih tarikh", jawi: LABEL.tarikh },
+        { quickDates: true },
+        { k: "hari", t: "select", options: HARI.slice(1, 6), label: "Hari", jawi: LABEL.hari },
+        { grid: [
+          { k: "tarikhM", t: "text", label: "Tarikh Masihi (auto)" },
+          { k: "tarikhH", t: "text", label: "Tarikh Hijri (auto)" },
+        ] },
+        { hint: "Pilih tarikh sahaja — hari, tarikh Masihi dan Hijri dalam Jawi diisi automatik (masih boleh diubah)." },
       ] },
       { grid: [
-        { k: "hari", t: "select", options: HARI.slice(1, 6), label: "Hari", jawi: LABEL.hari },
+        { k: "minggu", t: "text", label: "Minggu", jawi: LABEL.minggu, plain: true },
         { k: "kelas", t: "text", label: "Kelas", jawi: LABEL.kelas },
       ] },
-      { grid: [
-        { k: "tarikhM", t: "text", label: "Tarikh Masihi" },
-        { k: "tarikhH", t: "text", label: "Tarikh Hijri" },
-      ] },
-      { hint: "Hari, tarikh Masihi dan Hijri diisi automatik apabila tarikh dipilih (masih boleh diubah)." },
       { grid: [
         { k: "masa", t: "area", label: "Masa", jawi: LABEL.masa, rows: 2 },
         { k: "kehadiran", t: "text", label: "Kehadiran", jawi: LABEL.kehadiran },
@@ -20608,13 +20615,16 @@ var __async = (__this, __arguments, generator) => {
     const form = document.getElementById("formRph");
     const e = entry();
     if (!e) { form.innerHTML = `<p class="empty">Tiada RPH. Tekan “+ RPH baharu”.</p>`; return; }
-    form.innerHTML = RPH_FIELDS.map((fs) => `<fieldset><legend>${esc(fs.legend)}</legend>${fs.rows.map((r) => {
+    const row = (r) => {
+      if (r.box) return `<div class="${r.box}">${r.rows.map(row).join("")}</div>`;
+      if (r.quickDates) return `<div class="quick-dates">${[["Semalam", -1], ["Hari ini", 0], ["Esok", 1]].map(([t, d]) => `<button type="button" class="btn small" data-qd="${d}">${t}</button>`).join("")}</div>`;
       if (r.grid) return `<div class="grid2">${r.grid.map((f) => fieldHTML(f, e)).join("")}</div>`;
       if (r.hint) return `<span class="hint">${esc(r.hint)}</span>`;
       if (r.refleksi) return refleksiFormHTML(e);
       if (r.catatan) return `<div class="cat-grid">${CATATAN.map((c, i) => `<label><input type="checkbox" data-cat="${i}" ${e.catatan.includes(i) ? "checked" : ""}> ${esc(c)}</label>`).join("")}</div>`;
       return fieldHTML(r, e);
-    }).join("")}</fieldset>`).join("");
+    };
+    form.innerHTML = RPH_FIELDS.map((fs) => `<fieldset><legend>${esc(fs.legend)}</legend>${fs.rows.map(row).join("")}</fieldset>`).join("");
   }
 
   function renderSetForm() {
@@ -20964,6 +20974,14 @@ var __async = (__this, __arguments, generator) => {
         if (["tarikhISO", "subjek"].includes(el.dataset.k)) renderSelect();
       }
       save(); renderPreview();
+    });
+
+    fr.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-qd]"); if (!b) return;
+      const d = new Date(); d.setDate(d.getDate() + Number(b.dataset.qd));
+      const inp = document.getElementById("f_tarikhISO");
+      inp.value = iso(d);
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     // settings form
