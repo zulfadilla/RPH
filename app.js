@@ -173,7 +173,7 @@
         { k: "minggu", t: "text", label: "Minggu", jawi: LABEL.minggu, plain: true },
       ] },
       { grid: [
-        { k: "hari", t: "text", label: "Hari", jawi: LABEL.hari },
+        { k: "hari", t: "select", options: HARI.slice(1, 6), label: "Hari", jawi: LABEL.hari },
         { k: "kelas", t: "text", label: "Kelas", jawi: LABEL.kelas },
       ] },
       { grid: [
@@ -577,6 +577,8 @@
         e[el.dataset.k] = el.value;
         if (el.dataset.k === "tarikhISO") {
           applyDate(e);
+          const sel = document.getElementById("f_hari");
+          if (sel && ![...sel.options].some((o) => o.value === e.hari)) renderRphForm(); // hujung minggu
           for (const k of ["hari", "tarikhM", "tarikhH"]) { const x = document.getElementById("f_" + k); if (x) x.value = e[k]; }
         }
         if (["tarikhISO", "subjek"].includes(el.dataset.k)) renderSelect();
