@@ -20958,26 +20958,73 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     "lang", "eastAsianLayout", "specVanish", "oMath"];
   async function fixDocx(blob) {
     if (!window.JSZip) return blob;
-    const zip = await window.JSZip.loadAsync(blob);
+    const src = await window.JSZip.loadAsync(blob);
     const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     const WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
-    const parts = Object.keys(zip.files).filter((n) => /^word\/(document|header\d*|footer\d*|styles)\.xml$/.test(n)).sort();
+    const PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+    const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    const parse = (xml) => new DOMParser().parseFromString(xml, "application/xml");
+    const ser = (dom) => {
+      const out = new XMLSerializer().serializeToString(dom);
+      return out.startsWith("<?xml") ? out : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + out;
+    };
+    const files = {};
+    for (const n of Object.keys(src.files)) if (!src.files[n].dir) files[n] = n.endsWith(".png") || n.includes("/media/") ? await src.file(n).async("uint8array") : await src.file(n).async("string");
+
+    // 1) nama fail gambar biasa (image1.png …) & ID hubungan rIdImgN
+    const mediaMap = {}; let imgN = 0;
+    for (const n of Object.keys(files).filter((x) => x.startsWith("word/media/")).sort()) {
+      const ext = (n.split(".").pop() || "png").toLowerCase();
+      mediaMap[n.slice("word/".length)] = `media/image${++imgN}.${ext}`;
+    }
+    const relIdMap = {}; // per bahagian: { lama: baharu }
+    for (const n of Object.keys(files).filter((x) => /^word\/_rels\/.+\.rels$/.test(x))) {
+      const dom = parse(files[n]);
+      const part = "word/" + n.replace("word/_rels/", "").replace(/\.rels$/, "");
+      relIdMap[part] = {};
+      for (const rel of Array.from(dom.getElementsByTagName("Relationship"))) {
+        const t = rel.getAttribute("Target");
+        if (mediaMap[t]) {
+          const nid = "rIdImg" + mediaMap[t].match(/\d+/)[0];
+          relIdMap[part][rel.getAttribute("Id")] = nid;
+          rel.setAttribute("Id", nid);
+          rel.setAttribute("Target", mediaMap[t]);
+        }
+      }
+      files[n] = ser(dom);
+    }
+    for (const [o, nn] of Object.entries(mediaMap)) { files["word/" + nn] = files["word/" + o]; delete files["word/" + o]; }
+
+    // 2) susunan w:rPr ikut skema, ID gambar unik, nama gambar
     let docPrId = 1;
-    for (const name of parts) {
-      const xml = await zip.file(name).async("string");
-      const dom = new DOMParser().parseFromString(xml, "application/xml");
+    for (const name of Object.keys(files).filter((n) => /^word\/(document|header\d*|footer\d*|styles)\.xml$/.test(n)).sort()) {
+      const dom = parse(files[name]);
       if (dom.getElementsByTagName("parsererror").length) continue;
       for (const rPr of Array.from(dom.getElementsByTagNameNS(W, "rPr"))) {
-        const kids = Array.from(rPr.children);
         const rank = (el) => { const i = RPR_ORDER.indexOf(el.localName); return i < 0 ? 999 : i; };
-        kids.slice().sort((a, b) => rank(a) - rank(b)).forEach((el) => rPr.appendChild(el));
+        Array.from(rPr.children).sort((a, b) => rank(a) - rank(b)).forEach((el) => rPr.appendChild(el));
       }
-      for (const dp of Array.from(dom.getElementsByTagNameNS(WP, "docPr"))) dp.setAttribute("id", String(docPrId++));
-      let out = new XMLSerializer().serializeToString(dom);
-      if (!out.startsWith("<?xml")) out = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + out;
-      zip.file(name, out);
+      for (const dp of Array.from(dom.getElementsByTagNameNS(WP, "docPr"))) {
+        const id = docPrId++;
+        dp.setAttribute("id", String(id));
+        dp.setAttribute("name", "Picture " + id);
+        const cNvPr = dp.parentNode && dp.parentNode.getElementsByTagNameNS(PIC, "cNvPr")[0];
+        if (cNvPr) { cNvPr.setAttribute("id", String(id)); cNvPr.setAttribute("name", "Picture " + id); }
+      }
+      const map = relIdMap[name] || {};
+      for (const blip of Array.from(dom.getElementsByTagNameNS(A, "blip"))) {
+        const old = blip.getAttributeNS(R, "embed");
+        if (map[old]) blip.setAttributeNS(R, "r:embed", map[old]);
+      }
+      files[name] = ser(dom);
     }
-    return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
+
+    // 3) zip baharu: [Content_Types].xml dahulu, tanpa entri folder
+    const out = new window.JSZip();
+    const order = ["[Content_Types].xml", "_rels/.rels", ...Object.keys(files).filter((n) => n !== "[Content_Types].xml" && n !== "_rels/.rels").sort()];
+    for (const n of order) out.file(n, files[n], { createFolders: false });
+    return out.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
   }
 
   function download(blob, name) {
