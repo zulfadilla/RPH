@@ -8,6 +8,15 @@
     "اوݢوس", "سيڤتيمبر", "اوکتوبر", "نوۏيمبر", "ديسيمبر"];
   const BULAN_H = ["محرم", "صفر", "ربيع الاول", "ربيع الاخير", "جمادالاول", "جمادالأخير",
     "رجب", "شعبان", "رمضان", "شوال", "ذوالقعدة", "ذوالحجة"];
+  // Pilihan masa: 2.30 – 6.15 petang, setiap 15 minit
+  const MASA = [];
+  for (let m = 14 * 60 + 30; m <= 18 * 60 + 15; m += 15) MASA.push(`${Math.floor(m / 60) - 12}.${String(m % 60).padStart(2, "0")}`);
+  const MASA_MULA = "2.30", MASA_TAMAT = "6.15";
+  const masaIdx = (t) => MASA.indexOf(t);
+  function masaLines(e) {
+    if (!e.masaMula && !e.masaTamat && e.masa) return lines(e.masa); // data lama
+    return [`${e.masaMula || MASA_MULA} – ${e.masaTamat || MASA_TAMAT}`, "ڤتڠ"];
+  }
   const SUBJEK = ["جاوي", "ڤنديديقن القرءان", "عقيدة"];
   const CATATAN = ["چوتي ساكيت", "چوتي خاص", "كورسوس/ بيڠكيل", "مشوارت", "ڨروڬرم سكوله", "لاين۲"];
   const JAWI_PAD = ["ڤ", "ڠ", "چ", "ݢ", "ڬ", "ۏ", "ڽ", "ة", "ء", "أ", "إ", "ى", "۲", "،", "؟"];
@@ -61,7 +70,7 @@
       tarikhISO: "2026-11-16",
       minggu: "45", kelas: "تاهڤ 1", hari: "اثنين",
       tarikhM: "16 نوۏيمبر 2026", tarikhH: "06 جمادالأخير 1448",
-      masa: "2:30– 6.15\nڨتڠ", kehadiran: "115 /",
+      masaMula: MASA_MULA, masaTamat: MASA_TAMAT, kehadiran: "115 /",
       subjek: "عقيدة",
       sk: "اولڠكاجي دان لاتيهن",
       sp: "1. ممباچ اولڠكاجي دان لاتيهن\n2. مماهمي اولڠكاجي دان لاتيهن\n3. منوليس جواڤن اولڠكاجي دان لاتيهن",
@@ -183,9 +192,10 @@
         { k: "kelas", t: "text", label: "Kelas", jawi: LABEL.kelas },
       ] },
       { grid: [
-        { k: "masa", t: "area", label: "Masa", jawi: LABEL.masa, rows: 2 },
-        { k: "kehadiran", t: "text", label: "Kehadiran", jawi: LABEL.kehadiran },
+        { k: "masaMula", t: "select", options: MASA, plain: true, label: "Masa mula (petang)", jawi: LABEL.masa },
+        { k: "masaTamat", t: "select", options: MASA, plain: true, label: "Masa tamat (petang)" },
       ] },
+      { k: "kehadiran", t: "text", label: "Kehadiran", jawi: LABEL.kehadiran },
     ] },
     { legend: "Isi pelajaran", rows: [
       { k: "subjek", t: "select", options: SUBJEK, label: "Mata pelajaran", jawi: LABEL.subjek },
@@ -216,7 +226,7 @@
     let input;
     if (f.t === "select") {
       const opts = val && !f.options.includes(val) ? [...f.options, val] : f.options;
-      input = `<select id="${id}" data-k="${f.k}" class="jawi-in" dir="rtl">${val ? "" : `<option value="" selected disabled>— Pilih —</option>`}${
+      input = `<select id="${id}" data-k="${f.k}" ${f.plain ? "" : 'class="jawi-in" dir="rtl"'}>${val ? "" : `<option value="" selected disabled>— Pilih —</option>`}${
         opts.map((o) => `<option value="${esc(o)}" ${o === val ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
     } else if (f.t === "area") input = `<textarea id="${id}" data-k="${f.k}" rows="${f.rows || 3}" class="${jawiCls}">${esc(val)}</textarea>`;
     else if (f.t === "date") input = `<input type="date" id="${id}" data-k="${f.k}" value="${esc(val)}">`;
@@ -352,7 +362,7 @@
         <tr>
           <td class="c">${esc(e.minggu)}</td><td class="c">${esc(e.kelas)}</td><td class="c">${esc(e.hari)}</td>
           <td class="c">${ps([e.tarikhM, e.tarikhH].filter(Boolean))}</td>
-          <td class="c" colspan="2">${ps(lines(e.masa))}</td><td class="c">${esc(e.kehadiran)}</td>
+          <td class="c" colspan="2">${ps(masaLines(e))}</td><td class="c">${esc(e.kehadiran)}</td>
         </tr>
         <tr>${lbl(LABEL.subjek)}${body(`<b>${esc(e.subjek)}</b>`)}</tr>
         <tr>${lbl(LABEL.sk)}${body(ps(lines(e.sk)))}</tr>
@@ -460,7 +470,7 @@
           cell([para(e.kelas, { center: true })], { w: w(1, 1) }),
           cell([para(e.hari, { center: true })], { w: w(2, 1) }),
           cell(paras([e.tarikhM, e.tarikhH].filter(Boolean), { center: true }), { w: w(3, 1) }),
-          cell(paras(lines(e.masa), { center: true }), { span: 2, w: w(4, 2) }),
+          cell(paras(masaLines(e), { center: true }), { span: 2, w: w(4, 2) }),
           cell([para(e.kehadiran, { center: true })], { w: w(6, 1) }),
         ] }),
         new D.TableRow({ children: [lblCell(LABEL.subjek), bodyCell([para(e.subjek, { bold: true })])] }),
@@ -586,6 +596,16 @@
           for (const k of ["hari", "tarikhM", "tarikhH"]) { const x = document.getElementById("f_" + k); if (x) x.value = e[k]; }
         }
         if (["tarikhISO", "subjek"].includes(el.dataset.k)) renderSelect();
+        if (["masaMula", "masaTamat"].includes(el.dataset.k)) {
+          delete e.masa;
+          e.masaMula = e.masaMula || MASA_MULA; e.masaTamat = e.masaTamat || MASA_TAMAT;
+          if (masaIdx(e.masaTamat) <= masaIdx(e.masaMula)) {
+            if (el.dataset.k === "masaMula") e.masaTamat = MASA[Math.min(MASA.length - 1, masaIdx(e.masaMula) + 1)];
+            else e.masaMula = MASA[Math.max(0, masaIdx(e.masaTamat) - 1)];
+            document.getElementById("f_masaMula").value = e.masaMula;
+            document.getElementById("f_masaTamat").value = e.masaTamat;
+          }
+        }
       }
       save(); renderPreview();
     });
@@ -646,7 +666,7 @@
     document.getElementById("btnAdd").addEventListener("click", () => {
       const e = blankEntry();
       const prev = entry();
-      if (prev) { e.minggu = prev.minggu; e.kelas = prev.kelas; e.masa = prev.masa; }
+      if (prev) { e.minggu = prev.minggu; e.kelas = prev.kelas; e.masaMula = prev.masaMula; e.masaTamat = prev.masaTamat; e.masa = prev.masa; }
       state.entries.push(e); current = e.id; save(); refreshAll();
       toast("RPH baharu ditambah.");
     });
