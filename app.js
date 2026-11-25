@@ -461,7 +461,7 @@
     function rphTable(e) {
       const hdr = [LABEL.minggu, LABEL.kelas, LABEL.hari, LABEL.tarikh];
       const rows = [
-        new D.TableRow({ tableHeader: false, children: [
+        new D.TableRow({ children: [
           ...hdr.map((t, i) => lblCell(t, i, 1, true)),
           lblCell(LABEL.masa, 4, 2, true), lblCell(LABEL.kehadiran, 6, 1, true),
         ] }),
@@ -501,24 +501,28 @@
     ];
 
     // kepala surat
-    const logoImg = async (side) => {
+    // ukuran logo dikira sekali; objek imej baharu dicipta untuk setiap kepala surat
+    const logoInfo = async (side) => {
       const src = logoSrc(side);
-      if (!src) return para("");
+      if (!src) return null;
       const { w: iw, h: ih } = await imgSize(src);
-      const h = 50, wpx = Math.min(64, Math.round(h * iw / ih));
-      return new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: dataURLtoBytes(src), transformation: { width: wpx, height: Math.round(wpx * ih / iw) } })] });
+      const wpx = Math.min(64, Math.round(50 * iw / ih));
+      return { src, w: wpx, h: Math.round(wpx * ih / iw) };
     };
-    const [imgL, imgR] = await Promise.all([logoImg("kiri"), logoImg("kanan")]);
+    const [infoL, infoR] = await Promise.all([logoInfo("kiri"), logoInfo("kanan")]);
+    const logoPara = (info) => info
+      ? new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.ImageRun({ data: dataURLtoBytes(info.src), transformation: { width: info.w, height: info.h } })] })
+      : new D.Paragraph({ children: [] });
     const header = () => new D.Header({ children: [
       new D.Table({
         layout: D.TableLayoutType.FIXED, columnWidths: [1300, 6760, 1300], width: { size: TABLE_W, type: D.WidthType.DXA }, borders: noBorders,
         rows: [new D.TableRow({ children: [
-          new D.TableCell({ children: [imgL], width: { size: 1300, type: D.WidthType.DXA }, verticalAlign: D.VerticalAlign.CENTER, borders: noBorders }),
+          new D.TableCell({ children: [logoPara(infoL)], width: { size: 1300, type: D.WidthType.DXA }, verticalAlign: D.VerticalAlign.CENTER, borders: noBorders }),
           new D.TableCell({ verticalAlign: D.VerticalAlign.CENTER, width: { size: 6760, type: D.WidthType.DXA }, borders: noBorders, children: [
             new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.TextRun({ text: s.sekolah, font: "Arial", size: 17 })] }),
             new D.Paragraph({ alignment: D.AlignmentType.CENTER, bidirectional: true, children: [new D.TextRun({ text: s.tajuk, font, size: Math.round(SZ * 0.75), sizeComplexScript: Math.round(SZ * 0.75), rightToLeft: true })] }),
           ] }),
-          new D.TableCell({ children: [imgR], width: { size: 1300, type: D.WidthType.DXA }, verticalAlign: D.VerticalAlign.CENTER, borders: noBorders }),
+          new D.TableCell({ children: [logoPara(infoR)], width: { size: 1300, type: D.WidthType.DXA }, verticalAlign: D.VerticalAlign.CENTER, borders: noBorders }),
         ] })],
       }),
       new D.Paragraph({ border: { bottom: { style: D.BorderStyle.THICK_THIN_SMALL_GAP, size: 18, color: "7B1F1F", space: 1 } }, children: [] }),
@@ -541,7 +545,38 @@
       styles: { default: { document: { run: { font, size: SZ, sizeComplexScript: SZ } } } },
       sections,
     });
-    return D.Packer.toBlob(doc);
+    return fixDocx(await D.Packer.toBlob(doc));
+  }
+
+  // Betulkan XML supaya Microsoft Word (yang ketat) boleh membuka fail:
+  //  1) susunan elemen dalam <w:rPr> mesti ikut skema OOXML
+  //  2) setiap <wp:docPr id> (imej) mesti unik dalam seluruh dokumen
+  const RPR_ORDER = ["rStyle", "rFonts", "b", "bCs", "i", "iCs", "caps", "smallCaps", "strike", "dstrike", "outline",
+    "shadow", "emboss", "imprint", "noProof", "snapToGrid", "vanish", "webHidden", "color", "spacing", "w", "kern",
+    "position", "sz", "szCs", "highlight", "u", "effect", "bdr", "shd", "fitText", "vertAlign", "rtl", "cs", "em",
+    "lang", "eastAsianLayout", "specVanish", "oMath"];
+  async function fixDocx(blob) {
+    if (!window.JSZip) return blob;
+    const zip = await window.JSZip.loadAsync(blob);
+    const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    const WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    const parts = Object.keys(zip.files).filter((n) => /^word\/(document|header\d*|footer\d*|styles)\.xml$/.test(n)).sort();
+    let docPrId = 1;
+    for (const name of parts) {
+      const xml = await zip.file(name).async("string");
+      const dom = new DOMParser().parseFromString(xml, "application/xml");
+      if (dom.getElementsByTagName("parsererror").length) continue;
+      for (const rPr of Array.from(dom.getElementsByTagNameNS(W, "rPr"))) {
+        const kids = Array.from(rPr.children);
+        const rank = (el) => { const i = RPR_ORDER.indexOf(el.localName); return i < 0 ? 999 : i; };
+        kids.slice().sort((a, b) => rank(a) - rank(b)).forEach((el) => rPr.appendChild(el));
+      }
+      for (const dp of Array.from(dom.getElementsByTagNameNS(WP, "docPr"))) dp.setAttribute("id", String(docPrId++));
+      let out = new XMLSerializer().serializeToString(dom);
+      if (!out.startsWith("<?xml")) out = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + out;
+      zip.file(name, out);
+    }
+    return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", compression: "DEFLATE" });
   }
 
   function download(blob, name) {
