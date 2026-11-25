@@ -1,1 +1,3 @@
 .netlify
+dist/cloudflare/
+dist/*.zip
